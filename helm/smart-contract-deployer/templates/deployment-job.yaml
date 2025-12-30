@@ -75,7 +75,7 @@ spec:
           echo "Network: $NETWORK"
           echo "RPC: $RPC_URL"
 
-          npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
+          npx hardhat run scripts/deploy.ts --network $NETWORK
 
           PROXY_ADDRESS=$(cat deployments/$NETWORK/Proxy.json | jq -r '.address')
           IMPL_ADDRESS=$(cat deployments/$NETWORK/Implementation.json | jq -r '.address')

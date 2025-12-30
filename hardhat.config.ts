@@ -1,5 +1,9 @@
 import hardhatToolboxViemPlugin from "@nomicfoundation/hardhat-toolbox-viem";
 import { configVariable, defineConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-ethers";
+import "@nomicfoundation/hardhat-verify";
+import "@openzeppelin/hardhat-upgrades";
+
 
 export default defineConfig({
   plugins: [hardhatToolboxViemPlugin],
@@ -34,5 +38,8 @@ export default defineConfig({
       url: configVariable("SEPOLIA_RPC_URL"),
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
     },
+    arbitrum:{
+      
+    } 
   },
 });

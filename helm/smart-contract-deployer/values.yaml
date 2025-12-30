@@ -1,0 +1,36 @@
+contract:
+  name: "MyDefiProtocol"
+  network: "arbitrum"
+
+  rpcUrl: "https://api.zan.top/arb-one"
+
+  deployer:
+    image: 
+      repository: "myregistry/hardhat-deployer"
+      tag: "latest"
+      pullPolicy: Always
+
+  privateKeySecret: "deployer-private-key"
+
+  gasLimit: 5000000
+  maxFeePerGas: "50"  # gwei
+  maxPriorityFeePerGas: "2"  # gwei
+
+etherscan:
+  enabled: true
+  apiKeySecret : "etherscan-api-key"
+
+  
+notifications:
+  slack:
+    enabled: true
+    webhookUrlSecret: "slack-webhook-url"
+
+  discord:
+    enabled: false
+    webhookUrlSecret: "discord-webhook-url"
+
+addresses:
+  proxy: ""
+  implementation: ""
+  governance: ""

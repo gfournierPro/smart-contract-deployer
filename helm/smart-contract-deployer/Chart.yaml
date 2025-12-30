@@ -1,0 +1,4 @@
+apiVersion: v2
+name: smart-contract-deployer
+description: Automated smart contract deployment to Ethereum
+version: 1.0.0

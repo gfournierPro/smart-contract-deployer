@@ -1,0 +1,154 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name}}-deploy-{{ .Values.contract.name | lower}}
+  labels:
+    app: smart-contract-deployer
+    contract: {{ .Values.contract.name}}
+
+spec: 
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+
+  template:
+    metadata:
+      labels:
+        app: smart-contract-deployer
+    
+    spec:
+      restartPolicy: Never
+
+      initContainers:
+      containers:
+      - name: deployer 
+        image: "{{ .Values.contract.deployer.image.repository }}:{{ .Values.contract.deployer.image.tag }}"
+        imagePullPolicy: {{ .Values.contract.deployer.image.pullPolicy }}
+        env:
+        - name: NETWORK
+          value: {{ .Values.contract.network }}
+        - name: RPC_URL
+          value: {{ .Values.contract.rpcUrl }}
+
+        - name: PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.contract.deployer.privateKeySecret }}
+              key: privateKey
+
+        - name: GAS_LIMIT
+          value: "{{ .Values.contract.deployer.gasLimit }}"
+        - name: MAX_FEE_PER_GAS
+          value: "{{ .Values.contract.deployer.maxFeePerGas }}"
+        - name: MAX_PRIORITY_FEE_PER_GAS
+          value: "{{ .Values.contract.deployer.maxPriorityFeePerGas }}"
+
+        {{- if .Values.etherscan.enabled }}
+        - name: ETHERSCAN_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.etherscan.apiKeySecret }}
+              key: apiKey
+        {{- end }}
+
+        {{- if .Values.notifications.slack.enabled }}
+        - name: SLACK_WEBHOOK
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.notifications.slack.webhookUrlSecret }}
+              key: webhook
+        {{- end }}
+        
+        {{- if .Values.notifications.discord.enabled }}
+        - name: DISCORD_WEBHOOK
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.notifications.discord.webhookUrlSecret }}
+              key: webhook
+        {{- end }}
+
+        command:  
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "🚀 Starting contract deployment..."
+          echo "Network: $NETWORK"
+          echo "RPC: $RPC_URL"
+
+          npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
+
+          PROXY_ADDRESS=$(cat deployments/$NETWORK/Proxy.json | jq -r '.address')
+          IMPL_ADDRESS=$(cat deployments/$NETWORK/Implementation.json | jq -r '.address')
+          
+          echo "✅ Deployment successful!"
+          echo "Proxy: $PROXY_ADDRESS"
+          echo "Implementation: $IMPL_ADDRESS"
+
+          {{- if .Values.etherscan.enabled }}
+          echo "🔍 Verifying contracts on Etherscan..."
+          npx hardhat verify --network $NETWORK $PROXY_ADDRESS
+          npx hardhat verify --network $NETWORK $IMPL_ADDRESS
+          {{- end }}
+
+          cat > /tmp/addresses.json <<EOF
+          {
+            "proxy": "$PROXY_ADDRESS",
+            "implementation": "$IMPL_ADDRESS",
+            "network": "$NETWORK",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+          {{- if .Values.notifications.slack.enabled }}
+            curl -X POST $SLACK_WEBHOOK \
+              -H 'Content-Type: application/json' \
+              -d "{
+                \"text\": \"✅ Smart contract deployed on $NETWORK\",
+                \"attachments\": [{
+                  \"color\": \"good\",
+                  \"fields\": [
+                    {\"title\": \"Proxy\", \"value\": \"$PROXY_ADDRESS\", \"short\": false},
+                    {\"title\": \"Implementation\", \"value\": \"IMPL_ADDRESS\", \"short\": false},
+                    {\"title\": \"Network\", \"value\": \"$NETWORK\", \"short\": true}
+                  ]
+                }]
+              }"
+            {{- end }}
+
+        volumeMounts:
+        - name: deployment-artifacts
+          mountPath: /tmp
+
+      - name: update-configmap
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Wait for deployment to complete
+          while [ ! -f /tmp/addresses.json ]; do
+            echo "Waiting for deployment..."
+            sleep 5
+          done
+          
+          # Read addresses
+          PROXY=$(cat /tmp/addresses.json | jq -r '.proxy')
+          IMPL=$(cat /tmp/addresses.json | jq -r '.implementation')
+          
+          # Update ConfigMap
+          kubectl create configmap contract-addresses \
+            --from-literal=proxy=$PROXY \
+            --from-literal=implementation=$IMPL \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "✅ ConfigMap updated with new addresses"
+        
+        volumeMounts:
+        - name: deployment-artifacts
+          mountPath: /tmp
+
+      volumes:
+      - name: deployment-artifacts
+        emptyDir: {}
+      
+      serviceAccountName: contract-deployer

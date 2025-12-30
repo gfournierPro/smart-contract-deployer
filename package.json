@@ -1,20 +1,18 @@
 {
   "name": "smart-contract-deployer",
   "version": "1.0.0",
-  "type": "module",
   "devDependencies": {
-    "@nomicfoundation/hardhat-ignition": "^3.0.6",
-    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.1",
-    "@nomicfoundation/hardhat-verify": "^3.0.8",
+    "@nomicfoundation/hardhat-ethers": "^3.0.6",
+    "@nomicfoundation/hardhat-verify": "^2.0.0",
     "@openzeppelin/contracts": "^5.4.0",
     "@types/node": "^22.19.3",
-    "forge-std": "github:foundry-rs/forge-std#v1.9.4",
-    "hardhat": "^3.1.2",
+    "hardhat": "^2.22.0",
+    "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "~5.8.0",
-    "viem": "^2.43.3"
+    "typescript": "~5.8.0"
   },
   "dependencies": {
+    "@openzeppelin/contracts-upgradeable": "^5.4.0",
     "@openzeppelin/hardhat-upgrades": "^3.9.1"
   }
 }
